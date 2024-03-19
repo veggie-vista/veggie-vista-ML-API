@@ -9,7 +9,7 @@ import uuid
 app = Flask(__name__)
 
 # Load the model
-cnn = tf.keras.models.load_model("./trained_model_best.h5")
+cnn = tf.keras.models.load_model("trained_model.h5")
 
 # Define a function to preprocess the input image
 def preprocess_image(image_path):
@@ -65,7 +65,7 @@ def predict():
     # # Get the class name
     # result_class = class_names[result_index]
 
-    with open("./class_names.json") as f:
+    with open("class_names.json") as f:
         class_names = json.load(f)
     result_class = class_names[result_index]
 
