@@ -1,80 +1,58 @@
 from flask import Flask, jsonify, request
+from werkzeug.utils import secure_filename
 import numpy as np
 import tensorflow as tf
 import cv2
 import json
 import os
-import uuid
+import tempfile
+import logging
 
 app = Flask(__name__)
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
 # Load the model
 cnn = tf.keras.models.load_model("trained_model.h5")
+logging.info("Model loaded successfully.")
 
 # Define a function to preprocess the input image
-def preprocess_image(image_path):
-    image = cv2.imread(image_path)
+def preprocess_image(image):
     image = cv2.resize(image, (64, 64))
     image = np.expand_dims(image, axis=0)
     image = image / 255.0
     return image
 
-# # Load the validation dataset
-# validation_set = tf.keras.utils.image_dataset_from_directory(
-#     './archive/validation',
-#     labels="inferred",
-#     label_mode="categorical",
-#     class_names=None,
-#     color_mode="rgb",
-#     batch_size=32,
-#     image_size=(64,64),
-#     shuffle=True,
-#     seed=None,
-#     validation_split=None,
-#     subset=None,
-#     interpolation="bilinear",
-#     follow_links=False,
-#     crop_to_aspect_ratio=False
-# )
-
-# # Get the class names
-# class_names = validation_set.class_names
-
 # Define a route for the API
 @app.route("/predict", methods=["POST"])
 def predict():
-    # Get the image from the request
-    image = request.files["image"]
+    if 'image' not in request.files:
+        return jsonify({"error": "No image provided."}), 400
 
-    # Generate a unique file name
-    file_name = f"{uuid.uuid4()}.jpg"
+    image_file = request.files["image"]
 
-    # Save the image to disk
-    image.save(file_name)
+    if image_file.filename == '':
+        return jsonify({"error": "No image selected for uploading."}), 400
 
-    # Preprocess the image
-    image_path = os.path.join(os.getcwd(), file_name)
-    image = preprocess_image(image_path)
+    filename = secure_filename(image_file.filename)
+    if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+        return jsonify({"error": "Invalid file extension."}), 400
 
-    # Make a prediction
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        image_file.save(temp_file.name)
+        image = cv2.imread(temp_file.name)
+        image = preprocess_image(image)
+
     predictions = cnn.predict(image)
-
-    # Get the index of the highest prediction
     result_index = np.argmax(predictions[0])
-
-    # # Get the class name
-    # result_class = class_names[result_index]
 
     with open("class_names.json") as f:
         class_names = json.load(f)
     result_class = class_names[result_index]
 
-    # Delete the temporary file
-    os.remove(image_path)
-
-    # Return the result
+    os.unlink(temp_file.name)
     return jsonify({"class": result_class})
 
-# Run the app
 if __name__ == "__main__":
     app.run(debug=True)
