@@ -14,12 +14,12 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # Load the model
-cnn = tf.keras.models.load_model("trained_model.h5")
+cnn = tf.keras.models.load_model("new_model_1.h5")
 logging.info("Model loaded successfully.")
 
 # Define a function to preprocess the input image
 def preprocess_image(image):
-    image = cv2.resize(image, (64, 64))
+    image = cv2.resize(image, (64, 64), interpolation=cv2.INTER_AREA)
     image = np.expand_dims(image, axis=0)
     image = image / 255.0
     return image
